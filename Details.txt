@@ -1,3 +1,26 @@
+AWS certified Solutions Architect | Microservices | Cloud Native| Kubernetes | Docker| Java | Spring Boot
+
+
+
+I’m Experienced technical specialist with a demonstrated history of of cross-functional experience in Design, Development and Integration of software applications and products using Java/J2EE technologies in Banking and Financial Services. 
+
+• Skilled in Requirements Analysis, Design, Spring framework, Spring Boot, Micro service Architecture, Jboss Fuse, Apache Camel and Agile Methodologies. 
+
+• Designing and Development of N-tier web, enterprise, SOA integration, distributed and standalone applications using J2EE (Servlets, JSP, Custom tags, JDBC, JNDI, Java Mail, JMS), Spring, Camel, Blueprint, Fuse ESB, Struts, Hibernate, MyBatis, Web Services (SOAP/REST), XML and XSLT technology.
+
+• Proven expertise in OOAD distributed applications with UML, J2EE Design Patterns, Rational Rose and Weblogic/Websphere/JBoss/Tomcat Platforms. Worked on end-to-end development of component based, service oriented architecture (SOA) using Java/J2EE technologies.
+
+• Proven ability to imbibe new technologies/tools/processes/models in an un-accustomed and competitive environment. Excellent interpersonal, communication and analytical skills.
+
+• Extensive hands on experience in open source ESB/EAI technologies like Fuse ESB, camel, Apache (CXF, ActiveMQ, Karaf) and OSGi.
+
+• Very Good experience in all phases of software development life cycle (SDLC): System Analysis, Design, Development, Testing, Deployment, support, documentation & Configuration Management.
+
+• Well-versed in developing applications with Service Oriented Architecture (SOA) using SOAP, WSDL, UDDI and XML and Proficient in developing common reusable components.(APIs)
+
+• Expertise with SQL, PL/SQL, writing procedures and interfacing with different relational databases like Oracle, SQL Server and My SQLs.
+
+
 https://www.impactpool.org/jobs/404590
 username: shwetanambiar5@gmail.com
 password: sunisivawin0503

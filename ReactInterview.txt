@@ -1,0 +1,88 @@
+1. What are React’s Key Features?
+
+	Virtual DOM
+	JSX
+	Unidirectional Data Flow
+	Server-Side Rendering
+
+2. Can you explain about JSX?
+
+	JSX is a Javascript syntax extension that allows us to write HTML in our JavaScript to create React Elements
+	Babel compiles JSX into React.createElement() calls
+	Cleaner code with JSX expressions
+
+3. What is the Virtual DOM?
+
+	Manipulating the actual DOM is expensive
+	
+	->Virtual DOM: React makes a virtual representation of the actual DOM in memory
+	
+	->Expected changes are first reflected in an updated version of the Virtual DOM. The updated virtual DOM is compared with its previous version using React’s ‘diffing’ algorithm to determine how to best update the real DOMFundamentals
+
+4.What is a Component in React and what are the two main ways to define them?
+
+	-> Component: an independent reusable piece of the UI
+	-> Class Component: Component implemented using ES6 Classes extending React.Component
+	-> Function Component: Component implemented by a JS function that takes a props argument and returns a React element
+
+5. What are the differences between a class component and functional component?
+
+->Functional Components
+	1) A functional component is just a plain JavaScript function that accepts props as an argument and returns a React element.	
+	2) There is no render method used in functional components.	
+	3)Also known as Stateless components as they simply accept data and display them in some form, that they are mainly responsible for rendering UI.
+
+->Class Components                
+	1) A class component requires you to extend from React. Component and create a render function which returns a React element.
+	2) It must have the render() method returning HTML
+	3) Also known as Stateful components because they implement logic and state.
+
+3. What are props and state in React?
+
+	-> props is the JavaScript object passed into a Component that holds the configuration properties
+	-> props is immutable by the receiving Component
+	-> state is the JavaScript object managed within the Component that holds its internal state.
+	
+4. What is React Mounting?  
+
+   Mounting means putting elements into the DOM.
+
+5. How react perform mounting using Life cycle methods?
+
+ ->React has four built-in methods that gets called
+	constructor()
+	getDerivedStateFromProps()
+	render()
+	componentDidMount()
+	
+	The render() method is required and will always be called, the others are optional and will be called if you define them.
+
+6. What does setState() do and how does it work?
+	
+	The primary way that you make UI updates to your React applications is through a call to the setState() function. 
+ 
+7. What are React Hooks?
+
+	-> Allows function components to use state and other previous class-only features
+	-> Backwards compatible and optional
+	
+
+8.	Explain UseEffect hook
+	
+	-> The React hook useEffect helps in adding componentDidUpdate and componentDidMount combined lifecycle in React’s functional component.
+	
+9.	What is Redux and how we do state management
+	
+	->Biggest Challenge in React application is the management of state for frontend developers. In large applications, React alone is not sufficient to handle the complexity which is why some developers use React hooks and others use state management libraries such as Redux.
+	
+	State Management: 
+	
+	->The state is just a fancy term for a JavaScript data structure. If a user changes state by interacting with your application, the UI may look completely different afterwards, because it's represented by this new state rather than the old state
+	
+10.	What is Redux thunk and what is the use in Redux
+	
+	->Redux Thunk is middleware that allows you to return functions, rather than just actions, within Redux. This allows for delayed actions, including working with promises.
+	
+11.	What happen to Redux state on page refresh
+
+	->Redux restricts updating the state to this method only. This strict way of updating the state ensures that the state can not be changed directly either by view or any network callback. The only way to update a state is by defining the action and then dispatching it. Remember that actions are plain JavaScript objects.

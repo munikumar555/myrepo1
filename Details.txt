@@ -1,94 +1,311 @@
-https://jobs.tchibo.com/job/Hamburg-Praktikum-Recruitment-Hamb-22297/509882601/?feedId=196701
+package com.abc.mako.avq.jms
+
+import com.abc.mako.config.JMSTemplateContext
+import com.abc.mako.exception.MQTimeOutException
+import com.abc.mako.logger.getLogger
+import com.ibm.mq.jms.MQQueue
+import com.ibm.mq.jms.MQQueueConnectionFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Configuration
+import org.springframework.jms.core.JmsTemplate
+import org.springframework.jms.core.MessagePostProcessor
+import org.springframework.stereotype.Component
+import java.util.concurrent.atomic.AtomicReference
+import javax.jms.JMSException
+import javax.jms.Message
+
+@Component
+@Configuration
+class MQService {
+
+    val LOGGER = getLogger(javaClass)
+
+    @Autowired
+    lateinit var mqConnection: MQConnection
+
+    @Value("\${ibmmq.timeout}")
+    private var timeout: Long = 0
+
+    val healthStatus: String
+        get() {
+
+            val response: String
+            val mqConFactory = mqConnection.getMQConnectionFactory(true)
+
+            if (mqConFactory != null) {
+                response = "Sucessfull.Avaloq Connection is up"
+            } else {
+                response = "Unsucessfull.Avaloq Connection is down"
+            }
+            return response
+        }
 
 
-AWS certified Solutions Architect | Microservices | Cloud Native| Kubernetes | Docker| Java | Spring Boot
+    @Throws(MQTimeOutException::class)
+    fun sendAndRecieve(message: String, msguid: String, jmsTemplateContext: JMSTemplateContext, country: String): String {
+        return callMQ(message, msguid, jmsTemplateContext,country)
+    }
+
+    @Throws(MQTimeOutException::class)
+    private fun callMQ(message: String, msguid: String, jmsTemplateContext: JMSTemplateContext, country: String): String {
+        var responseMessage: String = ""
+        var senderQueue : MQQueue = MQQueue(jmsTemplateContext.requestDestination)
+        var receiverQueue: MQQueue = MQQueue(jmsTemplateContext.responseDestination)
+        try {
+            LOGGER.info("Sending Avaloq Request : Request No {} : Payload {}, country {}", msguid, message,country)
+          if(country.equals("hk")) {
+              senderQueue = MQQueue(jmsTemplateContext.requestDestinationhk)
+              receiverQueue = MQQueue(jmsTemplateContext.responseDestinationhk)
+          }
+            senderQueue.targetClient = 1
+            val processor = CorrelationIdPostProcessor(msguid, senderQueue, receiverQueue)
+            val jmsTemplate = JmsTemplate(mqConnection.getMQConnectionFactory(true))
+
+            LOGGER.info("jmsTemplate ->{}", jmsTemplate.hashCode())
+
+            jmsTemplate.isExplicitQosEnabled = true
+            jmsTemplate.setReceiveTimeout(timeout)
+            jmsTemplate.defaultDestination = senderQueue
+            jmsTemplate.convertAndSend(senderQueue, message, processor)
+            val messageId = processor.message.jmsMessageID
+            val startTime = System.currentTimeMillis()
+            responseMessage = jmsTemplate.receiveSelectedAndConvert(receiverQueue, "JMSCorrelationID = '$messageId'").toString()
+            val endTime = System.currentTimeMillis()
+            val elapsedTime = endTime - startTime
+            LOGGER.info("callMQ Elapsed time for receiving the response:{}", elapsedTime)
+            LOGGER.info("callMQ Timeout value set is:{}", timeout)
+            if (elapsedTime > timeout) {
+                LOGGER.info("Failed to receive AVALOQ response in outbound que with specified time {} : Request No {} : Response {}", elapsedTime, msguid, responseMessage)
+                throw MQTimeOutException("AVALOQ failed to respond within stipulated time frame")
+            } else {
+                LOGGER.info("Fetched Avaloq Response for : Request No {} : Response {}", messageId, responseMessage)
+            }
+            return responseMessage
+        } catch (ex: Exception) {
+            println(ex.localizedMessage)
+            println(ex)
+            LOGGER.error("Failed to receive AVALOQ response in outbound que with specified time  for request no message {}", message)
+            throw MQTimeOutException("AVALOQ failed to respond within stipulated time frame")
+        }
+
+        return responseMessage
+    }
+
+    companion object {
+        private val connectionFactory: MQQueueConnectionFactory? = null
+    }
+}
+
+private class CorrelationIdPostProcessor(private val correlationId: String, private val senderQueue: MQQueue, private val receiverQueue: MQQueue) : MessagePostProcessor {
+    private val messageRef = AtomicReference<Message>()
+
+    @Throws(JMSException::class)
+    override fun postProcessMessage(msg: Message): Message {
+        msg.jmsCorrelationID = correlationId
+        msg.jmsReplyTo = receiverQueue
+        msg.jmsDestination = senderQueue
+        messageRef.set(msg)
+        return msg
+    }
+
+    val message: Message
+        get() = messageRef.get()
+
+}
+
+spring:
+  profiles: sit
+ibmmq:
+  ccdtUrl: "classpath:ccdt/ibm-mq-ccdt-sit.json"
+  queueManager: "MQCSAVALOQWAPI"
+  keypassword: ${vcap.services.abc-creds.credentials.ibmmq.keypassword}
+  keystore: ${vcap.services.abc-mq-config.credentials.ibmmq.keystore}
+  requestqueuename: ${vcap.services.abc-mq-config.credentials.ibmmq.requestqueuename}
+  requestqueuenamehk: ${vcap.services.abc-mq-config.credentials.ibmmq.requestqueuename}
+  requestqueuename1: ${vcap.services.abc-mq-config.credentials.ibmmq.requestqueuename1}
+  requestqueuename1hk: ${vcap.services.abc-mq-config.credentials.ibmmq.requestqueuename1hk}
+  responsequeuename: ${vcap.services.abc-mq-config.credentials.ibmmq.responsequeuename}
+  responsequeuenamehk: ${vcap.services.abc-mq-config.credentials.ibmmq.responsequeuenamehk}
+  timeout: ${vcap.services.abc-mq-config.credentials.ibmmq.timeout}
+  trustpassword: ${vcap.services.abc-creds.credentials.ibmmq.trustpassword}
+  truststore: ${vcap.services.abc-mq-config.credentials.ibmmq.truststore}
+
+{
+  "channel": [
+    {
+      "name": "ABC.UAT.SVRCONN",
+      "clientConnection": {
+        "connection": [
+          {
+            "host": "abc.vsi.uat.dbs.com",
+            "port": 1414
+          },
+          {
+            "host": "abc.vsi.uat.dbs.com",
+            "port": 1414
+          }
+        ],
+        "queueManager": "MQCSAVALOQWAPI"
+      },
+      "connectionManagement": {
+        "clientWeight": 1,
+        "affinity": "none"
+      },
+      "transmissionSecurity": {
+        "cipherSpecification": "ECDHE_RSA_AES_256_CBC_SHA384"
+      },
+      "type": "clientConnection"
+    }
+  ]
+}
+
+package com.abc.mako.config
+
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.jms.core.JmsTemplate
+import org.springframework.stereotype.Component
+import java.util.ArrayList
+import java.util.concurrent.atomic.AtomicInteger
+
+
+interface JMSTemplateContext {
+    var requestDestination: String?
+    var requestDestinationhk: String?
+    var responseDestination: String?
+    var responseDestinationhk: String?
+}
+
+@Component("mqJMSTemplateContext")
+class MQJMSTemplateContext : JMSTemplateContext {
+    @Value("\${ibmmq.requestqueuename}")
+    override var requestDestination: String? = null
+
+    @Value("\${ibmmq.requestqueuenamehk}")
+    override var requestDestinationhk: String? = null
+
+    @Value("\${ibmmq.responsequeuename}")
+    override var responseDestination: String? = null
+
+    @Value("\${ibmmq.responsequeuenamehk}")
+    override var responseDestinationhk: String? = null
+}
+
+@Component("mq1JMSTemplateContext")
+class MQ1JMSTemplateContext : JMSTemplateContext {
+    @Value("\${ibmmq.requestqueuename1}")
+    override var requestDestination: String? = null
+
+    @Value("\${ibmmq.requestqueuename1hk}")
+    override var requestDestinationhk: String? = null
+
+    @Value("\${ibmmq.responsequeuename}")
+    override var responseDestination: String? = null
+
+    @Value("\${ibmmq.responsequeuenamehk}")
+    override var responseDestinationhk: String? = null
+}
+
+
+package com.abc.mako.avq.jms
+
+import com.abc.mako.logger.getLogger
+import com.ibm.mq.jms.MQQueueConnection
+import com.ibm.mq.jms.MQQueueConnectionFactory
+import com.ibm.msg.client.wmq.WMQConstants
+import org.apache.http.ssl.SSLContexts
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.beans.factory.config.ConfigurableBeanFactory
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Scope
+import org.springframework.core.io.Resource
+import org.springframework.stereotype.Component
+import java.io.IOException
+import java.security.KeyManagementException
+import java.security.KeyStoreException
+import java.security.NoSuchAlgorithmException
+import java.security.UnrecoverableKeyException
+import java.security.cert.CertificateException
+import javax.jms.JMSException
+
+@Configuration
+class MQConnection {
+
+    // New CCDT property
+    @Value("\${ibmmq.ccdtUrl}")
+    private val ccdtUrl: Resource? = null
+
+    @Value("\${ibmmq.queuemanager}")
+    private val queueManager: String? = null
+
+    @Value("\${ibmmq.keystore}")
+    private val keyStore: Resource? = null
+
+    @Value("\${ibmmq.truststore}")
+    private val trustStore: Resource? = null
+
+    @Value("\${ibmmq.keypassword}")
+    private val keyPassword: String? = null
+
+    @Value("\${ibmmq.trustpassword}")
+    private val trustPassword: String? = null
+
+    @Bean
+    fun getMQConnectionFactory(retry: Boolean): MQQueueConnectionFactory {
+        if (connectionFactory != null && !retry) {
+            LOGGER.info("Successfully returned cached MQ connection factory")
+            return connectionFactory!!
+        }
+        createConnectionFactory()
+        return connectionFactory!!
+    }
+
+    private fun createConnectionFactory() {
+        // Required for non-IBM JREs to map TLS ciphers correctly
+        System.setProperty("com.ibm.mq.cfg.useIBMCipherMappings", "false")
+        try {
+            val sslContext = SSLContexts.custom()
+                .loadTrustMaterial(trustStore!!.url, trustPassword!!.toCharArray())
+                .loadKeyMaterial(keyStore!!.url, keyPassword!!.toCharArray(), keyPassword.toCharArray())
+                .build()
+
+            val socketFactory = sslContext.socketFactory
+
+            val factory = MQQueueConnectionFactory()
+
+            // 1. Set CCDT URL (Resolves classpath: to a URL MQ understands)
+            ccdtUrl?.let {
+                factory.setCCDTURL(it.url)
+                LOGGER.info("CCDT URL Request $it.url")
+            }
+
+            // 2. Set Queue Manager (use "*" to let CCDT decide or specific name)
+            factory.queueManager = queueManager ?: "*"
+
+            LOGGER.info("MQ queueManager $queueManager")
+            // 3. Set SSL Socket Factory (MQ will use this for the handshake)
+            factory.sslSocketFactory = socketFactory
+
+            // 4. Client Transport is mandatory for CCDT
+            factory.transportType = WMQConstants.WMQ_CM_CLIENT
+
+            factory.sslFipsRequired = false
+
+            connectionFactory = factory
+            LOGGER.info("MQ Connection Factory Created using CCDT")
+
+        } catch (ex: Exception) {
+            // Caught as generic Exception for brevity, but matches your specific list
+            LOGGER.error("Exception in getting Avaloq connection, queue sender: ", ex)
+        }
+    }
+
+    companion object {
+        private val LOGGER = getLogger(MQConnection::class.java)
+        private var connectionFactory: MQQueueConnectionFactory? = null
+    }
+}
 
 
 
-I’m Experienced technical specialist with a demonstrated history of of cross-functional experience in Design, Development and Integration of software applications and products using Java/J2EE technologies in Banking and Financial Services. 
-
-• Skilled in Requirements Analysis, Design, Spring framework, Spring Boot, Micro service Architecture, Jboss Fuse, Apache Camel and Agile Methodologies. 
-
-• Designing and Development of N-tier web, enterprise, SOA integration, distributed and standalone applications using J2EE (Servlets, JSP, Custom tags, JDBC, JNDI, Java Mail, JMS), Spring, Camel, Blueprint, Fuse ESB, Struts, Hibernate, MyBatis, Web Services (SOAP/REST), XML and XSLT technology.
-
-• Proven expertise in OOAD distributed applications with UML, J2EE Design Patterns, Rational Rose and Weblogic/Websphere/JBoss/Tomcat Platforms. Worked on end-to-end development of component based, service oriented architecture (SOA) using Java/J2EE technologies.
-
-• Proven ability to imbibe new technologies/tools/processes/models in an un-accustomed and competitive environment. Excellent interpersonal, communication and analytical skills.
-
-• Extensive hands on experience in open source ESB/EAI technologies like Fuse ESB, camel, Apache (CXF, ActiveMQ, Karaf) and OSGi.
-
-• Very Good experience in all phases of software development life cycle (SDLC): System Analysis, Design, Development, Testing, Deployment, support, documentation & Configuration Management.
-
-• Well-versed in developing applications with Service Oriented Architecture (SOA) using SOAP, WSDL, UDDI and XML and Proficient in developing common reusable components.(APIs)
-
-• Expertise with SQL, PL/SQL, writing procedures and interfacing with different relational databases like Oracle, SQL Server and My SQLs.
-
-
-https://www.impactpool.org/jobs/404590
-username: shwetanambiar5@gmail.com
-password: sunisivawin0503
-
-Westwing:
-
-https://jobs.jobvite.com/careers/westwing-home-and-living/job/otRR5fw0/apply?__jvst=Career%20Site
-
-cute:-
-https://www.finest-jobs.com/Stellenanzeige/Intern-Product-Development-M-F-D-293743
-
-
-
-https://app.taledo.com/jobs
-
-https://jobs.harman.com/job/Northridge-Human-Resources-Summer-Intern-CA-91324/504044600/
-shwetanambiar5@gmail.com
-sunisivawin0503
-Kindernothilfe
-https://www.kindernothilfe.de/Stellenmarkt-uname-304.html
-https://recruitingapp-5025.de.umantis.com/Vacancies/304/Application/New/31
-
-https://jobs.tchibo.com/job/Hamburg-Praktikum-Recruitment-Hamb-22297/509882601/?feedId=196701
-https://jobsolutions-movado.persy.jobs/persy/l/job-3sons-p1-i2t629-stellenangebote-Praktikum-m-w-d-Human-Resources-Vollzeit-job-in-Bonn-53173-Nordrhein-Westfalen
-https://jobsolutions-movado.persy.jobs/persy/l/jap-3sons-p1
-
-https://app.taledo.com/jobs/internship-m-w-d-vienna-j-nk377c - Need to activate and proceed 
-https://corporate.lesara.com/jobs/19423-people-culture-human-resource-internship-m-f
-shwetanambiar5@gmail.com
-sunisivawin0503
-
-
-
-
-Dear Hiring Manager,
-
-
-I am a master’s student studying International Human Resource Management at Grenoble Ecole de Management, looking forward in doing an internship at Mondelez International. I am excited to learn more about your firm and curios how such an efficient invention can help a providing creative solutions. Given a chance, I would like to learn from your organisation by putting in my efforts to meet our targets.
-
-I have worked for three years with Standard Chartered GBS as a quality assurance engineer with people centric and project management roles where I was responsible for liaising between 5 team situated in different countries like Hong Kong, China, Kenya, Nigeria, Malaysia, India and Singapore. Currently, I am also working for BASSETTI group as a student consultant for defining their recruitment strategies and finding the loop holes in the current one. We as a group of 3 are required to build strategies for effective recruitment for people to the BASSETTI Talent pool from Canada, India, China, France and Germany. I have also been studying Process Communication Model which helps me understand the 6 personalities that people have and that would help me drive people to learn and develop by providing them the right fuel.
-
-My education and experience in a multinational environment and my internship in recruitments would help me do justice to the challenges offered at Mondelez International.
-
-Looking forward to hearing from you for a discussion.
-
-Thank you in advance for your time.
-
-
-Regards,
-Shweta Nambiar 
-
-
-https://theinterviewguys.com/tell-me-about-yourself-interview-question/
-https://www.thebalancecareers.com/interview-question-tell-me-about-yourself-1986900
-https://www.businessinsider.com/answer-tell-me-about-yourself-internship-interview-2017-1/?IR=T
-https://www.fastweb.com/career-planning/articles/common-internship-interview-questions-and-answers
-
-https://jobs.jobvite.com/careers/westwing-home-and-living/job/otRR5fw0/apply?__jvst=Career%20Site
-https://my.hirehive.io/kia-europe/jobs/38861/intern-m-f-d-the-kia-motors-european-hq-frankfurt-am-main
-https://www.finest-jobs.com/Bewerbung/Intern-Product-Development-M-F-D-293743
-https://www.finest-jobs.com/Stellenanzeige/Intern-Product-Development-M-F-D-293743
-
-
-https://www.immojeune.com/en/student-housing/grenoble-38.html
-https://housinganywhere.com/s/Grenoble--France
-https://erasmusu.com/en/erasmus-grenoble/student-housing
-http://www.studapart.com/en/student-housing/student-housing-grenoble
-https://www.nestpick.com/grenoble/
